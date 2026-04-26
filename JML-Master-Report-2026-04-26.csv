@@ -1,0 +1,7 @@
+"Name","Username","Action","OldRoles","NewRoles","Status","Timestamp"
+"Sarah Johnson","sjohnson","Joiner","","Finance-Read | Finance-Write | Expenses-Portal","Provisioned","2026-04-26 23:41"
+"James Okafor","jokafor","Joiner","","IT-Admin | Azure-Portal | ServiceDesk","Provisioned","2026-04-26 23:41"
+"David Chen","dchen","Joiner","","Finance-Read | Finance-Write | Expenses-Portal","Provisioned","2026-04-26 23:41"
+"Priya Patel","ppatel","Mover","HR-System | Recruitment-Portal","Finance-Read | Finance-Write | Expenses-Portal","Transfer Complete","2026-04-26 23:41"
+"Jonathan Nnoruka","jnnoruka","Mover","IT-Admin | Azure-Portal | ServiceDesk","HR-System | Recruitment-Portal","Transfer Complete","2026-04-26 23:41"
+"Emma Williams","ewilliams","Leaver","IT-Admin | Azure-Portal | ServiceDesk","","Deprovisioned","2026-04-26 23:41"
