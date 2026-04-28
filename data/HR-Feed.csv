@@ -1,0 +1,7 @@
+FirstName,LastName,Department,NewDepartment,JobTitle,StartDate,Manager,Action
+Sarah,Johnson,Finance,,Financial Analyst,2026-05-01,john.smith,Joiner
+James,Okafor,IT,,Systems Engineer,2026-05-01,jane.doe,Joiner
+Priya,Patel,HR,Finance,Finance Business Partner,2026-05-01,john.smith,Mover
+David,Chen,Finance,,Senior Accountant,2026-05-05,john.smith,Joiner
+Emma,Williams,IT,,Security Analyst,2026-05-05,jane.doe,Leaver
+Jonathan,Nnoruka,IT,HR,IAM Governance Lead,2026-05-05,mike.jones,Mover
