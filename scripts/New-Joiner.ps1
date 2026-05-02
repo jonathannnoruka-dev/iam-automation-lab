@@ -1,29 +1,28 @@
 # ============================================
-# IAM Lab - Bulk New Joiner Automation v2.0
+# IAM Lab - Bulk New Joiner Automation v3.0
 # Reads from HR CSV feed and provisions all
-# new starters automatically
+# new starters into real Microsoft Entra ID
+# via Microsoft Graph API
 # ============================================
 
-# Step 1: Load the HR feed
-$HRFeed = Import-Csv -Path ".\HR-Feed.csv"
-$Report = @()
+# Step 1: Load the HR feed and filter Joiners only
+$HRFeed  = Import-Csv -Path ".\data\HR-Feed.csv"
+$Joiners = $HRFeed | Where-Object { $_.Action -eq "Joiner" }
+$Report  = @()
 $Timestamp = Get-Date -Format "yyyy-MM-dd HH:mm"
 
 Write-Host ""
 Write-Host "============================================" -ForegroundColor Cyan
 Write-Host "  IAM BULK PROVISIONING REPORT" -ForegroundColor Cyan
 Write-Host "  Generated: $Timestamp" -ForegroundColor Cyan
-Write-Host "  Total New Joiners: $($HRFeed.Count)" -ForegroundColor Cyan
+Write-Host "  Total New Joiners: $($Joiners.Count)" -ForegroundColor Cyan
 Write-Host "============================================" -ForegroundColor Cyan
 
-# Step 2: Loop through every employee in the CSV
-foreach ($Employee in $HRFeed) {
+foreach ($Employee in $Joiners) {
 
-    # Generate username and email
     $Username = ($Employee.FirstName[0] + $Employee.LastName).ToLower()
-    $Email    = "$Username@algorithmia.com"
+    $UPN      = "$Username@jonathannnorukaoutlook.onmicrosoft.com"
 
-    # Assign roles based on department
     $Roles = switch ($Employee.Department) {
         "Finance" { @("Finance-Read", "Finance-Write", "Expenses-Portal") }
         "IT"      { @("IT-Admin", "Azure-Portal", "ServiceDesk") }
@@ -31,38 +30,59 @@ foreach ($Employee in $HRFeed) {
         default   { @("General-Access") }
     }
 
-    # Display each user's provisioning details
     Write-Host ""
     Write-Host "--------------------------------------------" -ForegroundColor Gray
     Write-Host "Name       : $($Employee.FirstName) $($Employee.LastName)"
     Write-Host "Username   : $Username"
-    Write-Host "Email      : $Email"
+    Write-Host "UPN        : $UPN"
     Write-Host "Department : $($Employee.Department)"
     Write-Host "Job Title  : $($Employee.JobTitle)"
     Write-Host "Start Date : $($Employee.StartDate)"
     Write-Host "Manager    : $($Employee.Manager)"
     Write-Host "Roles      : $($Roles -join ', ')" -ForegroundColor Green
-    Write-Host "Status     : " -NoNewline
-    Write-Host "PROVISIONED" -ForegroundColor Green
 
-    # Build report row
+    try {
+        $PasswordProfile = @{
+            Password                      = "TempPass@2024!"
+            ForceChangePasswordNextSignIn = $true
+        }
+
+        New-MgUser `
+            -DisplayName "$($Employee.FirstName) $($Employee.LastName)" `
+            -UserPrincipalName $UPN `
+            -MailNickname $Username `
+            -AccountEnabled `
+            -PasswordProfile $PasswordProfile `
+            -JobTitle $Employee.JobTitle `
+            -Department $Employee.Department
+
+        Write-Host "Status     : " -NoNewline
+        Write-Host "PROVISIONED IN ENTRA ID" -ForegroundColor Green
+        $Status = "Provisioned"
+
+    } catch {
+        Write-Host "Status     : " -NoNewline
+        Write-Host "FAILED - $($_.Exception.Message)" -ForegroundColor Red
+        $Status = "Failed"
+    }
+
     $Report += [PSCustomObject]@{
         Name       = "$($Employee.FirstName) $($Employee.LastName)"
         Username   = $Username
-        Email      = $Email
+        UPN        = $UPN
         Department = $Employee.Department
+        JobTitle   = $Employee.JobTitle
         Roles      = $Roles -join " | "
-        Status     = "Provisioned"
+        Status     = $Status
         Date       = $Timestamp
     }
 }
 
-# Step 3: Save report to CSV file
-$ReportPath = ".\Provisioning-Report-$(Get-Date -Format 'yyyy-MM-dd').csv"
+$ReportPath = ".\reports\Provisioning-Report-$(Get-Date -Format 'yyyy-MM-dd').csv"
 $Report | Export-Csv -Path $ReportPath -NoTypeInformation
 
 Write-Host ""
 Write-Host "============================================" -ForegroundColor Cyan
-Write-Host "  All $($HRFeed.Count) accounts provisioned!" -ForegroundColor Green
+Write-Host "  Processing complete!" -ForegroundColor Green
 Write-Host "  Report saved to: $ReportPath" -ForegroundColor Yellow
 Write-Host "============================================" -ForegroundColor Cyan

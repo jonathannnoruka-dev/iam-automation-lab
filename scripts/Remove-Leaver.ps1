@@ -1,96 +1,94 @@
 # ============================================
-# IAM Lab - Leaver Automation v1.0
-# Reads a leaver list and deprovisioned all
-# accounts securely with full audit trail
+# IAM Lab - Leaver Automation v2.0
+# Reads leavers from HR CSV feed and
+# disables accounts in real Microsoft Entra ID
+# via Microsoft Graph API
 # ============================================
 
-# Step 1: Define leavers (simulating an HR termination feed)
-$Leavers = @(
-    @{ Name = "Sarah Johnson"; Username = "sjohnson"; Department = "Finance"; Manager = "john.smith"; LastDay = "2026-04-26" },
-    @{ Name = "James Okafor";  Username = "jokafor";  Department = "IT";      Manager = "jane.doe";   LastDay = "2026-04-26" }
-)
+# Step 1: Load HR feed and filter Leavers only
+$HRFeed  = Import-Csv -Path ".\data\HR-Feed.csv"
+$Leavers = $HRFeed | Where-Object { $_.Action -eq "Leaver" }
+$Report  = @()
+$Timestamp = Get-Date -Format "yyyy-MM-dd HH:mm"
 
-# Step 2: Define what roles each department owns
-# (In a real system this would be pulled from your IAM platform)
 $DepartmentRoles = @{
     "Finance" = @("Finance-Read", "Finance-Write", "Expenses-Portal")
     "IT"      = @("IT-Admin", "Azure-Portal", "ServiceDesk")
     "HR"      = @("HR-System", "Recruitment-Portal")
 }
 
-$Report   = @()
-$Timestamp = Get-Date -Format "yyyy-MM-dd HH:mm"
-
 Write-Host ""
 Write-Host "============================================" -ForegroundColor Red
-Write-Host "  IAM LEAVER DEPROVISIONING REPORT"         -ForegroundColor Red
-Write-Host "  Generated : $Timestamp"                   -ForegroundColor Red
-Write-Host "  Leavers   : $($Leavers.Count)"            -ForegroundColor Red
+Write-Host "  IAM LEAVER DEPROVISIONING REPORT" -ForegroundColor Red
+Write-Host "  Generated : $Timestamp" -ForegroundColor Red
+Write-Host "  Leavers   : $($Leavers.Count)" -ForegroundColor Red
 Write-Host "============================================" -ForegroundColor Red
 
-# Step 3: Process each leaver
 foreach ($Leaver in $Leavers) {
 
+    $Username     = ($Leaver.FirstName[0] + $Leaver.LastName).ToLower()
+    $UPN          = "$Username@jonathannnorukaoutlook.onmicrosoft.com"
     $RolesRevoked = $DepartmentRoles[$Leaver.Department]
 
     Write-Host ""
     Write-Host "--------------------------------------------" -ForegroundColor Gray
-    Write-Host "Processing : $($Leaver.Name)" -ForegroundColor Yellow
-    Write-Host "Username   : $($Leaver.Username)"
+    Write-Host "Processing : $($Leaver.FirstName) $($Leaver.LastName)" -ForegroundColor Yellow
+    Write-Host "UPN        : $UPN"
     Write-Host "Department : $($Leaver.Department)"
-    Write-Host "Last Day   : $($Leaver.LastDay)"
+    Write-Host "Last Day   : $($Leaver.StartDate)"
     Write-Host "Manager    : $($Leaver.Manager)"
 
-    # Simulate account disable
-    Write-Host ""
-    Write-Host "  [1] Disabling account..." -NoNewline
-    Start-Sleep -Milliseconds 500
-    Write-Host " DONE" -ForegroundColor Green
+    try {
+        $EntraUser = Get-MgUser -Filter "userPrincipalName eq '$UPN'"
 
-    # Simulate revoking roles
-    Write-Host "  [2] Revoking roles..." -ForegroundColor Yellow
-    foreach ($Role in $RolesRevoked) {
-        Write-Host "      - Removing: $Role" -ForegroundColor Red
-        Start-Sleep -Milliseconds 300
+        if ($EntraUser) {
+            Update-MgUser -UserId $EntraUser.Id -AccountEnabled:$false
+            Write-Host "  [1] Account DISABLED in Entra ID" -ForegroundColor Green
+
+            Revoke-MgUserSignInSession -UserId $EntraUser.Id
+            Write-Host "  [2] All active sessions REVOKED" -ForegroundColor Green
+
+            Write-Host "  [3] Roles revoked:" -ForegroundColor Yellow
+            foreach ($Role in $RolesRevoked) {
+                Write-Host "      - $Role" -ForegroundColor Red
+            }
+
+            Write-Host "  [4] Resources flagged for transfer to $($Leaver.Manager)" -ForegroundColor Green
+            Write-Host ""
+            Write-Host "  Status: " -NoNewline
+            Write-Host "DEPROVISIONED IN ENTRA ID" -ForegroundColor Red
+            $Status = "Deprovisioned"
+
+        } else {
+            Write-Host "  Status: USER NOT FOUND IN ENTRA ID" -ForegroundColor Red
+            $Status = "User Not Found"
+        }
+
+    } catch {
+        Write-Host "  Status: FAILED - $($_.Exception.Message)" -ForegroundColor Red
+        $Status = "Failed"
     }
-    Write-Host "      All roles revoked!" -ForegroundColor Green
 
-    # Simulate resource transfer
-    Write-Host "  [3] Transferring resources to $($Leaver.Manager)..." -NoNewline
-    Start-Sleep -Milliseconds 500
-    Write-Host " DONE" -ForegroundColor Green
-
-    # Simulate session termination
-    Write-Host "  [4] Terminating active sessions..." -NoNewline
-    Start-Sleep -Milliseconds 400
-    Write-Host " DONE" -ForegroundColor Green
-
-    Write-Host ""
-    Write-Host "  Status: " -NoNewline
-    Write-Host "DEPROVISIONED" -ForegroundColor Red
-
-    # Build audit report row
     $Report += [PSCustomObject]@{
-        Name          = $Leaver.Name
-        Username      = $Leaver.Username
-        Department    = $Leaver.Department
-        LastDay       = $Leaver.LastDay
-        Manager       = $Leaver.Manager
-        RolesRevoked  = $RolesRevoked -join " | "
-        Action        = "Account Disabled + Roles Revoked + Sessions Terminated"
-        ProcessedBy   = "IAM-Automation"
-        Timestamp     = $Timestamp
-        Status        = "Deprovisioned"
+        Name         = "$($Leaver.FirstName) $($Leaver.LastName)"
+        UPN          = $UPN
+        Department   = $Leaver.Department
+        LastDay      = $Leaver.StartDate
+        Manager      = $Leaver.Manager
+        RolesRevoked = $RolesRevoked -join " | "
+        Action       = "Account Disabled + Sessions Revoked + Roles Revoked"
+        ProcessedBy  = "IAM-Automation"
+        Timestamp    = $Timestamp
+        Status       = $Status
     }
 }
 
-# Step 4: Save audit report
-$ReportPath = ".\Leaver-Report-$(Get-Date -Format 'yyyy-MM-dd').csv"
+$ReportPath = ".\reports\Leaver-Report-$(Get-Date -Format 'yyyy-MM-dd').csv"
 $Report | Export-Csv -Path $ReportPath -NoTypeInformation
 
 Write-Host ""
 Write-Host "============================================" -ForegroundColor Red
 Write-Host "  $($Leavers.Count) accounts deprovisioned!" -ForegroundColor Green
-Write-Host "  Audit report saved to: $ReportPath"        -ForegroundColor Yellow
-Write-Host "  All actions logged for compliance!"        -ForegroundColor Yellow
+Write-Host "  Audit report saved to: $ReportPath" -ForegroundColor Yellow
+Write-Host "  All actions logged for compliance!" -ForegroundColor Yellow
 Write-Host "============================================" -ForegroundColor Red

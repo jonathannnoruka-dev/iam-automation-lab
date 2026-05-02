@@ -1,0 +1,3 @@
+"Name","Username","Department","LastDay","Manager","RolesRevoked","Action","ProcessedBy","Timestamp","Status"
+"Sarah Johnson","sjohnson","Finance","2026-04-26","john.smith","Finance-Read | Finance-Write | Expenses-Portal","Account Disabled + Roles Revoked + Sessions Terminated","IAM-Automation","2026-05-02 02:40","Deprovisioned"
+"James Okafor","jokafor","IT","2026-04-26","jane.doe","IT-Admin | Azure-Portal | ServiceDesk","Account Disabled + Roles Revoked + Sessions Terminated","IAM-Automation","2026-05-02 02:40","Deprovisioned"
