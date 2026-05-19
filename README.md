@@ -20,6 +20,14 @@ A hands-on IAM engineering lab built to demonstrate real identity lifecycle auto
 - Created real cloud user (Alice Johnson) using New-MgUser
 - Verified user existence in Azure portal
 
+- ## Session 5 — RBAC & Group Management ✅
+- Created Security Groups: Finance-Team, IT-Team, HR-Team, Security-Operations
+- Assigned users to correct department groups via PowerShell
+- Upgraded New-Joiner.ps1 to v4.0 — now automatically assigns new users to their department group on creation
+- Built GroupMap dictionary for department to Group ID mapping
+- Created Conditional Access policy via Microsoft Graph API (Report-only mode)
+- Full end-to-end automation: CSV → User Created → Group Assigned → Report Generated
+
 ## Tech Stack
 - PowerShell 7
 - Microsoft Graph API
